@@ -7,6 +7,7 @@ import AnalyticsPage from './pages/Analytics'
 import SettingsPage from './pages/Settings'
 import AssistantPage from './pages/Assistant'
 import MemoryPage from './pages/Memory'
+import LocalModelsPage from './pages/LocalModels'
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
           <Route path="/" element={<DashboardPage />} />
           <Route path="/tools" element={<ToolsPage />} />
           <Route path="/chat" element={<ChatPage />} />
+          <Route path="/local-models" element={<LocalModelsPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/assistant" element={<AssistantPage />} />
