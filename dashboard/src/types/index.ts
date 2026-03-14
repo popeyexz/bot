@@ -36,6 +36,25 @@ export interface ModelConfig {
   requiresKey: boolean
   maxTokens: number
   color: string
+  /** True for permissive/uncensored open-source models (run locally via Ollama) */
+  isUncensored?: boolean
+  /** Exact Ollama model tag used with `ollama pull <ollamaName>` */
+  ollamaName?: string
+}
+
+export interface UncensoredModelInfo {
+  /** Matches ModelConfig.id */
+  id: string
+  name: string
+  ollamaName: string
+  description: string
+  /** Approximate VRAM/RAM needed, e.g. "8 GB RAM" */
+  ramRequired: string
+  /** Relative hardware tier: 'low' | 'mid' | 'high' */
+  tier: 'low' | 'mid' | 'high'
+  tags: string[]
+  /** Approximate parameter count for display */
+  params: string
 }
 
 export interface ServiceStatus {

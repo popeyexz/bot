@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, X, Copy, Check, Layers, ChevronDown } from 'lucide-react'
+import { Send, X, Copy, Check, Layers, ChevronDown, ShieldAlert, Flame } from 'lucide-react'
 import { clsx } from 'clsx'
-import { MODELS } from '../data/tools'
+import { MAINSTREAM_MODELS, MODELS } from '../data/tools'
 import type { Message, ModelConfig, MultiModelResult } from '../types'
 
 function MessageBubble({ msg }: { msg: Message }) {
@@ -64,9 +64,11 @@ function MessageBubble({ msg }: { msg: Message }) {
 function ModelSelector({
   selected,
   onChange,
+  models,
 }: {
   selected: ModelConfig
   onChange: (m: ModelConfig) => void
+  models: ModelConfig[]
 }) {
   const [open, setOpen] = useState(false)
 
@@ -78,12 +80,13 @@ function ModelSelector({
       >
         <span className={clsx('w-2 h-2 rounded-full bg-current', selected.color)} />
         <span className="font-medium">{selected.name}</span>
+        {selected.isUncensored && <Flame className="w-3 h-3 text-orange-400" />}
         <ChevronDown className={clsx('w-3.5 h-3.5 text-gray-500 transition-transform', open && 'rotate-180')} />
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1 w-64 glass-card p-1 z-20 shadow-xl shadow-black/40 animate-fade-in">
-          {MODELS.map((m) => (
+        <div className="absolute top-full left-0 mt-1 w-72 glass-card p-1 z-20 shadow-xl shadow-black/40 animate-fade-in max-h-80 overflow-y-auto">
+          {models.map((m) => (
             <button
               key={m.id}
               onClick={() => {
@@ -98,8 +101,13 @@ function ModelSelector({
               )}
             >
               <span className={clsx('w-2 h-2 rounded-full mt-1.5 flex-shrink-0 bg-current', m.color)} />
-              <div>
-                <div className="font-medium">{m.name}</div>
+              <div className="flex-1 min-w-0">
+                <div className="font-medium flex items-center gap-1.5">
+                  {m.name}
+                  {m.isUncensored && (
+                    <Flame className="w-3 h-3 text-orange-400 flex-shrink-0" />
+                  )}
+                </div>
                 <div className="text-[11px] text-gray-500">{m.description}</div>
               </div>
             </button>
@@ -121,9 +129,16 @@ export default function ChatPage() {
     },
   ])
   const [input, setInput] = useState('')
-  const [selectedModel, setSelectedModel] = useState<ModelConfig>(MODELS[0])
+  const [showUncensored, setShowUncensored] = useState(() => {
+    return (
+      localStorage.getItem('strix_uncensored_enabled') === 'true' &&
+      localStorage.getItem('strix_uncensored_disclaimer') === 'accepted'
+    )
+  })
+  const activeModels = showUncensored ? MODELS : MAINSTREAM_MODELS
+  const [selectedModel, setSelectedModel] = useState<ModelConfig>(activeModels[0])
   const [multiModel, setMultiModel] = useState(false)
-  const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set([MODELS[0].id]))
+  const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set([activeModels[0].id]))
   const [loading, setLoading] = useState(false)
   const [multiResults, setMultiResults] = useState<MultiModelResult[]>([])
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -250,9 +265,26 @@ export default function ChatPage() {
         <p className="section-subheader">Chat with multiple AI models side by side</p>
       </div>
 
+      {/* Uncensored model disclaimer banner */}
+      {selectedModel.isUncensored && !multiModel && (
+        <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-orange-500/10 border border-orange-500/20 text-xs text-orange-300">
+          <ShieldAlert className="w-3.5 h-3.5 flex-shrink-0" />
+          <span>
+            <strong>Permissive model active.</strong> Outputs are unfiltered. Use responsibly and in
+            accordance with local law. All processing is 100% local.
+          </span>
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3 mb-4 p-3 glass-card">
-        {!multiModel && <ModelSelector selected={selectedModel} onChange={setSelectedModel} />}
+        {!multiModel && (
+          <ModelSelector
+            selected={selectedModel}
+            onChange={setSelectedModel}
+            models={activeModels}
+          />
+        )}
 
         {/* Multi-model toggle */}
         <button
@@ -268,9 +300,33 @@ export default function ChatPage() {
           Multi-model
         </button>
 
+        {/* Uncensored toggle (only shown if disclaimer was accepted) */}
+        {localStorage.getItem('strix_uncensored_disclaimer') === 'accepted' && (
+          <button
+            onClick={() => {
+              const next = !showUncensored
+              setShowUncensored(next)
+              localStorage.setItem('strix_uncensored_enabled', String(next))
+              if (!next && selectedModel.isUncensored && MAINSTREAM_MODELS.length > 0) {
+                setSelectedModel(MAINSTREAM_MODELS[0])
+              }
+            }}
+            className={clsx(
+              'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors border',
+              showUncensored
+                ? 'bg-orange-600/20 border-orange-500/30 text-orange-300'
+                : 'bg-gray-900 border-gray-700 text-gray-400 hover:text-gray-200',
+            )}
+            title="Toggle permissive/uncensored models"
+          >
+            <Flame className="w-3.5 h-3.5" />
+            Permissive
+          </button>
+        )}
+
         {multiModel && (
           <div className="flex gap-1.5 flex-wrap">
-            {MODELS.map((m) => (
+            {activeModels.map((m) => (
               <button
                 key={m.id}
                 onClick={() => toggleMultiModel(m.id)}
@@ -283,6 +339,7 @@ export default function ChatPage() {
               >
                 <span className={clsx('w-1.5 h-1.5 rounded-full bg-current', m.color)} />
                 {m.name}
+                {m.isUncensored && <Flame className="w-2.5 h-2.5 text-orange-400" />}
               </button>
             ))}
           </div>

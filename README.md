@@ -194,6 +194,44 @@ The dashboard will:
 
 ---
 
+## Local & Permissive (Uncensored) Models
+
+The **Local Models** page (`/local-models`) lets you browse, install, and chat with permissive open-source models that run 100% privately on your hardware via Ollama.
+
+### Available Models
+
+| Model | Params | RAM Required | Tier |
+|---|---|---|---|
+| Nous Hermes 2 | 7B | 8 GB | Entry |
+| OpenHermes 2.5 | 7B | 8 GB | Entry |
+| Dolphin Mistral | 7B | 8 GB | Entry |
+| Llama 2 Uncensored | 7B | 8 GB | Entry |
+| WizardLM Vicuna Uncensored | 13B | 16 GB | Mid |
+| Dolphin Mixtral | 8×7B | 32 GB | High-end |
+| DeepSeek-V2 | 236B MoE | 32+ GB | High-end |
+
+### Enabling Permissive Models
+
+1. Go to **Local Models** in the sidebar.
+2. Read and accept the safety disclaimer (one-time).
+3. Toggle **"Permissive models in AI Chat"** to enable them in the Chat page.
+4. Install a model using the shown `ollama pull <model>` command.
+5. In **AI Chat**, click the **Permissive** toggle to reveal uncensored models in the model selector.
+
+### Safety & Responsible Use
+
+> ⚠️ These models have reduced or removed safety filters. Use is limited to **legal purposes only** in your jurisdiction. All processing is local — no data leaves your machine. You are solely responsible for generated content.
+
+```bash
+# Example: pull and run Nous Hermes 2 locally
+ollama pull nous-hermes2
+ollama run nous-hermes2
+```
+
+Once pulled, select "Nous Hermes 2" (🔥 icon) in the Chat model selector to start a private session.
+
+---
+
 ## Tool Categories
 
 | Category     | Tools                                                          |
