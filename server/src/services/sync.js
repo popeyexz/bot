@@ -1,6 +1,8 @@
 import { readdir, copyFile, mkdir, stat } from 'fs/promises'
 import { join } from 'path'
 
+const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.tiff'])
+
 export async function syncHandler(req, res) {
   const source = req.body?.source ?? process.env.SYNC_SOURCE_DIR
   const target = req.body?.target ?? process.env.SYNC_TARGET_DIR
@@ -24,7 +26,6 @@ export async function syncHandler(req, res) {
     return res.status(500).json({ error: `Cannot create target directory: ${String(err)}` })
   }
 
-  const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.tiff'])
   let copied = 0
   let skipped = 0
 

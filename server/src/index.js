@@ -87,10 +87,10 @@ wss.on('connection', (ws) => {
   }
 
   sendStatus()
-  const iv = setInterval(sendStatus, 15_000)
+  const statusInterval = setInterval(sendStatus, 15_000)
 
   ws.on('close', () => {
-    clearInterval(iv)
+    clearInterval(statusInterval)
     console.log('[WS] client disconnected')
   })
 
