@@ -1,4 +1,4 @@
-import type { Tool, ModelConfig } from '../types'
+import type { Tool, ModelConfig, UncensoredModelInfo } from '../types'
 
 export const TOOLS: Tool[] = [
   // AI/ML
@@ -237,7 +237,112 @@ export const TOOLS: Tool[] = [
   },
 ]
 
-export const MODELS: ModelConfig[] = [
+/** Catalog of uncensored / permissive open-source models available via Ollama */
+export const UNCENSORED_MODELS: UncensoredModelInfo[] = [
+  {
+    id: 'nous-hermes2',
+    name: 'Nous Hermes 2',
+    ollamaName: 'nous-hermes2',
+    description:
+      'Highly capable instruction-following model fine-tuned by Nous Research. Excellent for automation, creative writing, and research tasks.',
+    ramRequired: '8 GB RAM',
+    tier: 'low',
+    tags: ['instruction', 'creative', 'research'],
+    params: '7B',
+  },
+  {
+    id: 'openhermes',
+    name: 'OpenHermes 2.5',
+    ollamaName: 'openhermes',
+    description:
+      'GPT-4-quality instruction following on Mistral 7B. Great for coding, brainstorming, and content pipelines.',
+    ramRequired: '8 GB RAM',
+    tier: 'low',
+    tags: ['instruction', 'coding', 'content'],
+    params: '7B',
+  },
+  {
+    id: 'dolphin-mistral',
+    name: 'Dolphin Mistral',
+    ollamaName: 'dolphin-mistral',
+    description:
+      'Uncensored Mistral 7B fine-tune (Dolphin series). Fast, permissive, and ideal for private research and automation.',
+    ramRequired: '8 GB RAM',
+    tier: 'low',
+    tags: ['uncensored', 'fast', 'automation'],
+    params: '7B',
+  },
+  {
+    id: 'dolphin-mixtral',
+    name: 'Dolphin Mixtral',
+    ollamaName: 'dolphin-mixtral',
+    description:
+      'Uncensored Mixtral 8×7B MoE — one of the most capable open-source models. Great for complex reasoning and long context tasks.',
+    ramRequired: '32 GB RAM',
+    tier: 'high',
+    tags: ['uncensored', 'reasoning', 'long-context'],
+    params: '8×7B',
+  },
+  {
+    id: 'wizard-vicuna-uncensored',
+    name: 'WizardLM Vicuna Uncensored',
+    ollamaName: 'wizard-vicuna-uncensored',
+    description:
+      'WizardLM 13B Vicuna fine-tune without safety filters. Useful for creative writing, story generation, and advanced prompting.',
+    ramRequired: '16 GB RAM',
+    tier: 'mid',
+    tags: ['creative', 'story', 'prompting'],
+    params: '13B',
+  },
+  {
+    id: 'deepseek-v2',
+    name: 'DeepSeek-V2',
+    ollamaName: 'deepseek-v2',
+    description:
+      'High-performance open-source MoE model from DeepSeek. Outstanding coding and reasoning. Recommended for Mini PC / Strix hardware.',
+    ramRequired: '32+ GB RAM',
+    tier: 'high',
+    tags: ['coding', 'reasoning', 'mini-pc'],
+    params: '236B MoE',
+  },
+  {
+    id: 'llama2-uncensored',
+    name: 'Llama 2 Uncensored',
+    ollamaName: 'llama2-uncensored',
+    description:
+      'Meta Llama 2 7B with safety filters removed via fine-tuning. Lightweight and fast on modest hardware.',
+    ramRequired: '8 GB RAM',
+    tier: 'low',
+    tags: ['lightweight', 'fast', 'local'],
+    params: '7B',
+  },
+]
+
+/** Uncensored model entries added to the chat model selector */
+const UNCENSORED_MODEL_CONFIGS: ModelConfig[] = UNCENSORED_MODELS.map((m) => ({
+  id: m.id,
+  name: m.name,
+  provider: 'ollama' as const,
+  description: m.description,
+  requiresKey: false,
+  maxTokens: 32000,
+  color: 'text-orange-400',
+  isUncensored: true,
+  ollamaName: m.ollamaName,
+}))
+
+export const CATEGORIES = [
+  'All',
+  'AI/ML',
+  'Dev Tools',
+  'Creative',
+  'Cloud AI',
+  'Automation',
+  'Productivity',
+] as const
+
+/** Mainstream (cloud + default Ollama) models */
+export const MAINSTREAM_MODELS: ModelConfig[] = [
   {
     id: 'gpt-4o',
     name: 'GPT-4o',
@@ -285,12 +390,5 @@ export const MODELS: ModelConfig[] = [
   },
 ]
 
-export const CATEGORIES = [
-  'All',
-  'AI/ML',
-  'Dev Tools',
-  'Creative',
-  'Cloud AI',
-  'Automation',
-  'Productivity',
-] as const
+/** All models: mainstream + uncensored/permissive */
+export const MODELS: ModelConfig[] = [...MAINSTREAM_MODELS, ...UNCENSORED_MODEL_CONFIGS]

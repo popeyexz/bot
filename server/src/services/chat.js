@@ -74,19 +74,23 @@ async function deepseekChat(messages, apiKey) {
   return { content: data.choices?.[0]?.message?.content ?? '' }
 }
 
-async function ollamaChat(messages) {
+async function ollamaChat(messages, requestedModel) {
   const ollamaUrl = process.env.OLLAMA_URL ?? 'http://localhost:11434'
 
-  // Try to pick first available model
-  let model = 'llama3'
-  try {
-    const listRes = await fetch(`${ollamaUrl}/api/tags`, { signal: AbortSignal.timeout(3000) })
-    if (listRes.ok) {
-      const listData = await listRes.json()
-      if (listData.models?.length > 0) model = listData.models[0].name
+  // If a specific model was requested (e.g. an uncensored model), use it directly.
+  // Otherwise auto-pick the first available model from Ollama's list.
+  let model = requestedModel && requestedModel !== 'ollama-local' ? requestedModel : null
+  if (!model) {
+    model = 'llama3'
+    try {
+      const listRes = await fetch(`${ollamaUrl}/api/tags`, { signal: AbortSignal.timeout(3000) })
+      if (listRes.ok) {
+        const listData = await listRes.json()
+        if (listData.models?.length > 0) model = listData.models[0].name
+      }
+    } catch {
+      // use default
     }
-  } catch {
-    // use default
   }
 
   const res = await fetch(`${ollamaUrl}/api/chat`, {
@@ -103,6 +107,18 @@ async function ollamaChat(messages) {
   return { content: data.message?.content ?? '' }
 }
 
+/** Model IDs that map to local Ollama models (uncensored / permissive) */
+const OLLAMA_LOCAL_MODELS = new Set([
+  'ollama-local',
+  'nous-hermes2',
+  'openhermes',
+  'dolphin-mistral',
+  'dolphin-mixtral',
+  'wizard-vicuna-uncensored',
+  'deepseek-v2',
+  'llama2-uncensored',
+])
+
 export async function chatHandler(req, res) {
   const { model, messages, apiKey } = req.body ?? {}
 
@@ -117,12 +133,21 @@ export async function chatHandler(req, res) {
     result = await anthropicChat(model, messages, apiKey)
   } else if (model.startsWith('gemini')) {
     result = await googleChat(messages, apiKey)
-  } else if (model === 'deepseek-chat' || model.startsWith('deepseek')) {
+  } else if (model === 'deepseek-chat' || (model.startsWith('deepseek') && !OLLAMA_LOCAL_MODELS.has(model))) {
     result = await deepseekChat(messages, apiKey)
-  } else if (model === 'ollama-local' || model.startsWith('ollama')) {
-    result = await ollamaChat(messages)
+  } else if (OLLAMA_LOCAL_MODELS.has(model) || model.startsWith('ollama')) {
+    // Route both the generic ollama-local and named uncensored models to Ollama
+    result = await ollamaChat(messages, model)
   } else {
-    result = { content: `Unknown model: ${model}` }
+    // Unknown model — try Ollama as a fallback (user may have pulled a custom model).
+    // Wrap in try-catch so we return a helpful message if the model is not found.
+    try {
+      result = await ollamaChat(messages, model)
+    } catch {
+      result = {
+        content: `Unknown model: "${model}". If this is a custom Ollama model, make sure Ollama is running and the model has been pulled with \`ollama pull ${model}\`.`,
+      }
+    }
   }
 
   return res.json(result)
