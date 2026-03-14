@@ -6,6 +6,8 @@ import {
   BarChart3,
   Settings,
   Zap,
+  BrainCircuit,
+  BookOpen,
   Flame,
 } from 'lucide-react'
 import { clsx } from 'clsx'
@@ -13,10 +15,12 @@ import { useServiceStatus } from '../hooks/useServiceStatus'
 
 const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, exact: true },
+  { to: '/assistant', label: 'Aria', icon: BrainCircuit },
   { to: '/tools', label: 'Tools', icon: Grid3X3 },
   { to: '/chat', label: 'AI Chat', icon: MessageSquare },
   { to: '/local-models', label: 'Local Models', icon: Flame },
   { to: '/analytics', label: 'Analytics', icon: BarChart3 },
+  { to: '/memory', label: 'Memory', icon: BookOpen },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
 

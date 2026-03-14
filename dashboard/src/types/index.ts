@@ -105,3 +105,56 @@ export interface MultiModelResult {
   error?: string
   latency: number
 }
+
+// ── Persistent Memory types ──────────────────────────────────────────────────
+
+export interface UserProject {
+  name: string
+  description?: string
+}
+
+export interface TeamMember {
+  name: string
+  role?: string
+  contact?: string
+}
+
+export interface UserMemory {
+  name: string
+  preferences: Record<string, string>
+  projects: (string | UserProject)[]
+  notes: string[]
+}
+
+export interface MemoryData {
+  user: UserMemory
+  team: TeamMember[]
+  auditLog: AuditLogEntry[]
+  updatedAt: string | null
+}
+
+export interface AuditLogEntry {
+  ts: string
+  actor: string
+  action: 'set' | 'delete' | 'reset'
+  path: string
+  prev: unknown
+  value: unknown
+}
+
+export interface HealingAlert {
+  id: string
+  name: string
+  status: string
+  suggestion: string
+}
+
+export interface AssistantContext {
+  name: string
+  systemPrompt: string
+  serviceStatuses: { id: string; status: string; latency?: number }[]
+  onlineCount: number
+  offlineCount: number
+  healingAlerts: HealingAlert[]
+}
+

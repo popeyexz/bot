@@ -8,9 +8,13 @@ import { checkServiceHealth, getLocalTools } from './services/health.js'
 import { chatHandler } from './services/chat.js'
 import { syncHandler } from './services/sync.js'
 import { ollamaModels } from './services/ollama.js'
+import { getMemory, setMemoryKey, deleteMemoryKey, getAuditLog, resetMemory, isProtectedPath } from './services/memory.js'
+import { buildAssistantContext, ASSISTANT_NAME } from './services/assistant.js'
 
 const syncLimiter = rateLimit({ windowMs: 60_000, max: 10, standardHeaders: true, legacyHeaders: false })
 const modelsLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true, legacyHeaders: false })
+const memoryLimiter = rateLimit({ windowMs: 60_000, max: 60, standardHeaders: true, legacyHeaders: false })
+const assistantLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true, legacyHeaders: false })
 
 const app = express()
 const PORT = parseInt(process.env.PORT ?? '3001', 10)
@@ -66,6 +70,85 @@ app.get('/api/models', modelsLimiter, async (_req, res) => {
   } catch (err) {
     // Return 200 with empty list so the UI degrades gracefully when Ollama is offline
     res.status(200).json({ models: [], error: String(err) })
+  }
+})
+
+// ── Memory routes ─────────────────────────────────────────────────────────────
+app.get('/api/memory', memoryLimiter, (_req, res) => {
+  res.json(getMemory())
+})
+
+app.get('/api/memory/audit', memoryLimiter, (_req, res) => {
+  res.json(getAuditLog())
+})
+
+app.post('/api/memory', memoryLimiter, (req, res) => {
+  const { path, value, actor } = req.body ?? {}
+  if (!path || typeof path !== 'string') {
+    return res.status(400).json({ error: '"path" (string, dot-notation) is required' })
+  }
+  // Prevent writing to the audit log or updatedAt fields directly
+  if (isProtectedPath(path)) {
+    return res.status(400).json({ error: `The path "${path}" is read-only` })
+  }
+  try {
+    const updated = setMemoryKey(path, value, actor ?? 'user')
+    return res.json(updated)
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to update memory', detail: String(err) })
+  }
+})
+
+app.delete('/api/memory/reset', memoryLimiter, (req, res) => {
+  try {
+    const updated = resetMemory(req.body?.actor ?? 'user')
+    return res.json(updated)
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to reset memory', detail: String(err) })
+  }
+})
+
+app.delete('/api/memory/:path(*)', memoryLimiter, (req, res) => {
+  const dotPath = req.params.path
+  if (!dotPath) return res.status(400).json({ error: 'path is required' })
+  if (isProtectedPath(dotPath)) {
+    return res.status(400).json({ error: `The path "${dotPath}" is read-only` })
+  }
+  try {
+    const updated = deleteMemoryKey(dotPath, req.body?.actor ?? 'user')
+    return res.json(updated)
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to delete memory key', detail: String(err) })
+  }
+})
+
+// ── Assistant routes ──────────────────────────────────────────────────────────
+app.get('/api/assistant/context', assistantLimiter, async (_req, res) => {
+  try {
+    const ctx = await buildAssistantContext()
+    res.json({ name: ASSISTANT_NAME, ...ctx })
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to build assistant context', detail: String(err) })
+  }
+})
+
+app.post('/api/assistant/chat', assistantLimiter, async (req, res) => {
+  const { model, messages, apiKey } = req.body ?? {}
+  if (!model || !Array.isArray(messages)) {
+    return res.status(400).json({ error: 'model and messages are required' })
+  }
+  try {
+    // Inject the Aria system prompt as the first message
+    const ctx = await buildAssistantContext()
+    const enrichedMessages = [
+      { role: 'system', content: ctx.systemPrompt },
+      ...messages.filter((m) => m.role !== 'system'),
+    ]
+    // Reuse the existing chatHandler but with the enriched messages
+    req.body = { model, messages: enrichedMessages, apiKey }
+    return await chatHandler(req, res)
+  } catch (err) {
+    return res.status(500).json({ error: 'Assistant chat error', detail: String(err) })
   }
 })
 

@@ -6,3 +6,5 @@ dist/
 dashboard/node_modules/
 server/node_modules/
 dashboard/dist/
+# Aria persistent memory data (user-specific — do not commit)
+server/data/memory.json

@@ -5,6 +5,8 @@ import ToolsPage from './pages/Tools'
 import ChatPage from './pages/Chat'
 import AnalyticsPage from './pages/Analytics'
 import SettingsPage from './pages/Settings'
+import AssistantPage from './pages/Assistant'
+import MemoryPage from './pages/Memory'
 import LocalModelsPage from './pages/LocalModels'
 
 export default function App() {
@@ -18,6 +20,8 @@ export default function App() {
           <Route path="/local-models" element={<LocalModelsPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/assistant" element={<AssistantPage />} />
+          <Route path="/memory" element={<MemoryPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

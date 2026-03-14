@@ -1,0 +1,3 @@
+# This directory holds Aria's persistent memory (memory.json).
+# The memory.json file itself is git-ignored (user-private data).
+# See MEMORY_FILE in .env.example to customise the path.

@@ -1,6 +1,7 @@
 # Strix — AI Tools Dashboard
 
 > A unified, production-quality dashboard for launching, managing, and chatting with AI tools — local and cloud.
+> Featuring **Aria**, your persistent, human-near AI assistant that remembers your context, monitors service health, and self-heals broken workflows.
 
 ![Dark theme dashboard with sidebar, tool grid, and AI chat](https://img.shields.io/badge/theme-dark-1a1a2e?style=flat-square) ![React 18](https://img.shields.io/badge/React-18-61dafb?style=flat-square&logo=react) ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?style=flat-square&logo=typescript) ![Node.js](https://img.shields.io/badge/Node.js-20-5fa04e?style=flat-square&logo=node.js) ![License MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)
 
@@ -14,10 +15,11 @@
 4. [Environment Variables](#environment-variables)
 5. [AI Model Setup](#ai-model-setup)
 6. [Ollama Integration](#ollama-integration)
-7. [Tool Categories](#tool-categories)
-8. [Feature Details](#feature-details)
-9. [Expansion Guide](#expansion-guide)
-10. [Secrets Management](#secrets-management)
+7. [Aria — Persistent AI Assistant](#aria--persistent-ai-assistant)
+8. [Tool Categories](#tool-categories)
+9. [Feature Details](#feature-details)
+10. [Expansion Guide](#expansion-guide)
+11. [Secrets Management](#secrets-management)
 
 ---
 
@@ -28,20 +30,23 @@ strix/
 ├── dashboard/          # Vite + React + TypeScript frontend
 │   ├── src/
 │   │   ├── components/ # Layout, Sidebar, ToolCard
-│   │   ├── pages/      # Dashboard, Tools, Chat, Analytics, Settings
+│   │   ├── pages/      # Dashboard, Tools, Chat, Analytics, Settings, Assistant, Memory
 │   │   ├── data/       # Tool and model definitions
 │   │   ├── hooks/      # useServiceStatus (real-time polling)
 │   │   └── types/      # TypeScript interfaces
 │   └── Dockerfile      # nginx multi-stage build
 │
 ├── server/             # Express + Node.js backend
+│   ├── data/           # Aria's persistent memory (memory.json — git-ignored)
 │   └── src/
 │       ├── index.js            # HTTP + WebSocket server
 │       └── services/
 │           ├── chat.js         # AI provider proxies
 │           ├── health.js       # Service health checks
 │           ├── sync.js         # File sync utility
-│           └── ollama.js       # Ollama model listing
+│           ├── ollama.js       # Ollama model listing
+│           ├── memory.js       # Persistent memory with audit log
+│           └── assistant.js    # Aria persona, system-prompt builder, self-healing
 │
 ├── docker-compose.yml  # Production deployment
 ├── install.sh          # One-command setup
@@ -57,7 +62,9 @@ Browser (port 3000)
   ├── /api/*  ──────►  Express server (port 3001)
   │                       ├── OpenAI / Anthropic / Google / DeepSeek
   │                       ├── Ollama  (localhost:11434)
-  │                       └── Health checks → local services
+  │                       ├── Health checks → local services
+  │                       ├── Memory  → server/data/memory.json
+  │                       └── Aria    → system-prompt + memory context
   │
   └── WebSocket ──────►  Real-time status updates (15s interval)
 ```
@@ -143,6 +150,9 @@ Copy `.env.example` to `.env` and fill in your values.
 | `FRONTEND_URL`         | `http://localhost:3000`        | Allowed CORS origin             |
 | `SYNC_SOURCE_DIR`      | —                              | Source dir for art sync         |
 | `SYNC_TARGET_DIR`      | —                              | Target dir for art sync         |
+| `MEMORY_FILE`          | `./data/memory.json`           | Path to Aria's persistent memory|
+| `ASSISTANT_NAME`       | `Aria`                         | Name of the persistent assistant|
+| `GITHUB_TOKEN`         | —                              | GitHub PAT for future integrations (optional) |
 
 ---
 
@@ -191,6 +201,47 @@ The dashboard will:
 - Auto-detect available Ollama models via `GET /api/models`
 - Show Ollama status in the service health panel
 - Route "Ollama (Local)" chat messages to the running server
+
+---
+
+## Aria — Persistent AI Assistant
+
+Aria is the base-layer AI that makes Strix a true personal dashboard OS. She lives in the **Aria** page and:
+
+### Features
+
+- **Persistent memory** — remembers your name, preferences, active projects, saved notes, and team members across every session. Stored in `server/data/memory.json` (configurable via `MEMORY_FILE`).
+- **Contextual conversations** — every message is sent with a dynamically built system prompt that includes your full memory context and the live status of all local services.
+- **Self-healing alerts** — when a service goes offline, Aria immediately surfaces an exact repair command in a highlighted banner at the top of the chat.
+- **Proactive suggestions** — Aria notices when services are down and volunteers fixes without being asked.
+- **Human-near UX** — warm, direct, reliable personality. Aria confirms when she's remembered something new.
+
+### Memory page
+
+Visit `/memory` to:
+- View and edit your name, preferences (key-value), projects, notes, and team members.
+- Browse the full audit log of every change (who changed what, when, and what it was before).
+- Reset all memory with one click (audit log preserved).
+
+### API
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/assistant/context` | Returns Aria's current context (service statuses, healing alerts) |
+| `POST` | `/api/assistant/chat` | Chat with Aria — system prompt is automatically injected |
+| `GET` | `/api/memory` | Read full memory JSON |
+| `POST` | `/api/memory` | Write a value — body: `{ path: "user.preferences.theme", value: "dark" }` |
+| `DELETE` | `/api/memory/:path` | Delete a key by dot-notation path |
+| `DELETE` | `/api/memory/reset` | Reset memory to defaults (keeps audit log) |
+| `GET` | `/api/memory/audit` | Get the audit log array |
+
+### Example: save a preference via curl
+
+```bash
+curl -X POST http://localhost:3001/api/memory \
+  -H "Content-Type: application/json" \
+  -d '{"path": "user.preferences.theme", "value": "dark"}'
+```
 
 ---
 
@@ -259,6 +310,18 @@ Each card shows:
 - Featured 6-tool grid for fast access
 - Local service status grid
 
+### Aria Assistant (`/assistant`)
+- Conversational AI with full memory and service context
+- Self-healing banner when any service is offline
+- Model selector (any configured provider)
+- Live context sidebar: online/offline counts, healing alerts, memory link
+- Clears to a fresh greeting while keeping memory intact
+
+### Memory (`/memory`)
+- Edit identity, preferences, projects, notes, and team members
+- Full audit log with timestamps and before/after values
+- Reset danger zone with confirmation gate
+
 ### Tool Launcher (`/tools`)
 - Category filter tabs + search box
 - Responsive grid (2–5 columns)
@@ -322,6 +385,10 @@ Add the model config to `dashboard/src/data/tools.ts` `MODELS` array.
 
 In `chat.js`, change the OpenAI call to `stream: true` and pipe the SSE response back to the client. In `Chat.tsx`, consume a `ReadableStream` and update message content incrementally.
 
+### Extend Aria's memory
+
+Add new top-level keys to `DEFAULT_MEMORY` in `server/src/services/memory.js`. They will be auto-created on first boot and editable via the Memory page or API.
+
 ---
 
 ## Secrets Management
@@ -333,7 +400,7 @@ In `chat.js`, change the OpenAI call to `stream: true` and pipe the SSE response
 | **Docker secrets / env vars** | `docker compose` injects env vars from `.env` at runtime. |
 | **Vault / secret manager** | Production multi-user deployments — replace `process.env` reads in `chat.js` with vault SDK calls. |
 
-**Important:** The `.env` file is in `.gitignore`. Never commit real API keys. Rotate keys immediately if accidentally exposed.
+**Important:** The `.env` file and `server/data/memory.json` are in `.gitignore`. Never commit real API keys or personal memory data. Rotate keys immediately if accidentally exposed.
 
 ---
 
