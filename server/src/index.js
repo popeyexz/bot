@@ -11,14 +11,19 @@ import { ollamaModels } from './services/ollama.js'
 import { getMemory, setMemoryKey, deleteMemoryKey, getAuditLog, resetMemory, isProtectedPath } from './services/memory.js'
 import { buildAssistantContext, ASSISTANT_NAME } from './services/assistant.js'
 import { requireApiKey } from './middleware/auth.js'
+import { securityHeaders, sanitiseInput } from './middleware/security.js'
 import { runAgent, AGENT_TYPES } from './agents/manager.js'
 import { addTask, getQueueStatus } from './tasks/queue.js'
+import { uploadMiddleware, listUploads, deleteUpload } from './services/paperclip.js'
+import { listIntegrations, runIntegration, runAllIntegrations } from './services/integrations.js'
 
 const syncLimiter = rateLimit({ windowMs: 60_000, max: 10, standardHeaders: true, legacyHeaders: false })
 const modelsLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true, legacyHeaders: false })
 const memoryLimiter = rateLimit({ windowMs: 60_000, max: 60, standardHeaders: true, legacyHeaders: false })
 const assistantLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true, legacyHeaders: false })
 const agentLimiter = rateLimit({ windowMs: 60_000, max: 20, standardHeaders: true, legacyHeaders: false })
+const uploadLimiter = rateLimit({ windowMs: 60_000, max: 15, standardHeaders: true, legacyHeaders: false })
+const integrationLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true, legacyHeaders: false })
 
 /** Permissive / uncensored Ollama model IDs — usage is logged for accountability. */
 const PERMISSIVE_MODEL_IDS = new Set([
@@ -42,6 +47,7 @@ const PORT = parseInt(process.env.PORT ?? '3001', 10)
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:3000'
 
 // ── Middleware ────────────────────────────────────────────────────────────────
+app.use(securityHeaders)
 app.use(
   cors({
     origin: [FRONTEND_URL, 'http://localhost:3000', 'http://localhost:4173'],
@@ -49,6 +55,7 @@ app.use(
   }),
 )
 app.use(express.json({ limit: '4mb' }))
+app.use(sanitiseInput)
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => {
@@ -224,6 +231,80 @@ app.post('/api/agent/task', agentLimiter, requireApiKey, (req, res) => {
  */
 app.get('/api/agent/queue', agentLimiter, requireApiKey, (_req, res) => {
   return res.json(getQueueStatus())
+})
+
+// ── Paperclip (file upload) routes ────────────────────────────────────────────
+
+/**
+ * POST /api/upload
+ * Accepts a single file (multipart/form-data, field "file").
+ * Validates MIME type, extension, and size before writing to disk.
+ */
+app.post('/api/upload', uploadLimiter, requireApiKey, (req, res) => {
+  uploadMiddleware(req, res, (err) => {
+    if (err) {
+      const status = err.code === 'LIMIT_FILE_SIZE' ? 413 : 400
+      return res.status(status).json({ error: err.message })
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file provided. Use field name "file".' })
+    }
+    return res.json({
+      success: true,
+      file: {
+        name: req.file.filename,
+        originalName: req.file.originalname,
+        size: req.file.size,
+        mimetype: req.file.mimetype,
+      },
+    })
+  })
+})
+
+/** GET /api/uploads — list all uploaded files. */
+app.get('/api/uploads', uploadLimiter, (_req, res) => {
+  res.json(listUploads())
+})
+
+/** DELETE /api/uploads/:name — remove a specific upload. */
+app.delete('/api/uploads/:name', uploadLimiter, requireApiKey, (req, res) => {
+  const removed = deleteUpload(req.params.name)
+  if (!removed) return res.status(404).json({ error: 'File not found.' })
+  return res.json({ success: true })
+})
+
+// ── Integration routes (free APIs with security checks) ──────────────────────
+
+/** GET /api/integrations — list all available integrations (metadata only). */
+app.get('/api/integrations', integrationLimiter, (_req, res) => {
+  res.json(listIntegrations())
+})
+
+/**
+ * GET /api/integrations/run/:id — execute a single integration by ID.
+ * Each call passes through the security gate (HTTPS-only, domain allow-list,
+ * per-integration rate limit, response-size guard, request timeout).
+ */
+app.get('/api/integrations/run/:id', integrationLimiter, async (req, res) => {
+  try {
+    const result = await runIntegration(req.params.id)
+    return res.json(result)
+  } catch (err) {
+    return res.status(400).json({ error: String(err.message ?? err) })
+  }
+})
+
+/**
+ * GET /api/integrations/run-all — execute every registered integration in
+ * parallel and return combined results + any errors.
+ */
+app.get('/api/integrations/run-all', integrationLimiter, async (_req, res) => {
+  try {
+    const { results, errors } = await runAllIntegrations()
+    return res.json({ results, errors })
+  } catch (err) {
+    return res.status(500).json({ error: String(err.message ?? err) })
+  }
 })
 
 // ── HTTP + WebSocket server ────────────────────────────────────────────────────
