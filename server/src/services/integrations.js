@@ -94,7 +94,13 @@ async function safeFetch(id, url, limits = {}) {
     throw new Error(`Integration "${id}" returned HTTP ${res.status}`)
   }
 
-  // Guard against oversized responses
+  // Check Content-Length header before reading body when available
+  const contentLength = parseInt(res.headers.get('content-length') ?? '0', 10)
+  if (contentLength > MAX_RESPONSE_BYTES) {
+    throw new Error(`Integration "${id}" response exceeds size limit (${contentLength} bytes)`)
+  }
+
+  // Guard against oversized responses that lack Content-Length
   const text = await res.text()
   if (text.length > MAX_RESPONSE_BYTES) {
     throw new Error(`Integration "${id}" response exceeds size limit`)
@@ -141,7 +147,8 @@ const INTEGRATIONS = [
     description: 'Search for recently created popular repositories on GitHub — free, no API key required.',
     category: 'developer',
     async fetch() {
-      const since = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10)
+      const sevenDaysMs = 7 * 24 * 60 * 60 * 1000
+      const since = new Date(Date.now() - sevenDaysMs).toISOString().slice(0, 10)
       const url = `https://api.github.com/search/repositories?q=created:>${since}&sort=stars&order=desc&per_page=10`
       return safeFetch('github-trending', url, { max: 10, windowMs: 60_000 })
     },

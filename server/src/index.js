@@ -11,7 +11,7 @@ import { ollamaModels } from './services/ollama.js'
 import { getMemory, setMemoryKey, deleteMemoryKey, getAuditLog, resetMemory, isProtectedPath } from './services/memory.js'
 import { buildAssistantContext, ASSISTANT_NAME } from './services/assistant.js'
 import { requireApiKey } from './middleware/auth.js'
-import { securityHeaders, sanitiseInput } from './middleware/security.js'
+import { securityHeaders, sanitizeInput } from './middleware/security.js'
 import { runAgent, AGENT_TYPES } from './agents/manager.js'
 import { addTask, getQueueStatus } from './tasks/queue.js'
 import { uploadMiddleware, listUploads, deleteUpload } from './services/paperclip.js'
@@ -55,7 +55,7 @@ app.use(
   }),
 )
 app.use(express.json({ limit: '4mb' }))
-app.use(sanitiseInput)
+app.use(sanitizeInput)
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => {

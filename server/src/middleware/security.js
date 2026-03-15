@@ -1,11 +1,11 @@
 /**
  * Security middleware — adds HTTP security headers via helmet, input
- * sanitisation for JSON payloads, and a timing-safe API-key comparison
+ * sanitization for JSON payloads, and a timing-safe API-key comparison
  * utility used by the auth module.
  *
  * Import order in index.js:
  *   1. helmet()          — sets secure HTTP headers
- *   2. sanitiseInput()   — strips dangerous characters from string values
+ *   2. sanitizeInput()   — strips dangerous characters from string values
  */
 
 import helmet from 'helmet'
@@ -33,11 +33,15 @@ export const securityHeaders = helmet({
   crossOriginEmbedderPolicy: false, // allow cross-origin images from local services
 })
 
-// ── Input Sanitisation ──────────────────────────────────────────────────────
+// ── Input Sanitization ──────────────────────────────────────────────────────
 /**
  * Recursively walk a value and strip characters commonly used in injection
  * attacks from every string leaf.  Arrays and plain objects are traversed;
  * other types are returned as-is.
+ *
+ * Note: This is a defense-in-depth layer, not a complete XSS solution.
+ * The primary protection comes from the CSP headers set by helmet above
+ * and proper output encoding on the frontend.
  */
 function sanitise(value) {
   if (typeof value === 'string') {
@@ -57,10 +61,10 @@ function sanitise(value) {
 }
 
 /**
- * Express middleware that sanitises `req.body` on every request that
+ * Express middleware that sanitizes `req.body` on every request that
  * carries a JSON payload.
  */
-export function sanitiseInput(req, _res, next) {
+export function sanitizeInput(req, _res, next) {
   if (req.body && typeof req.body === 'object') {
     req.body = sanitise(req.body)
   }

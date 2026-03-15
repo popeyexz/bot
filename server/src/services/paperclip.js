@@ -13,7 +13,7 @@
 
 import multer from 'multer'
 import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'fs'
-import { join, dirname, extname } from 'path'
+import { join, dirname, extname, resolve, basename } from 'path'
 import { fileURLToPath } from 'url'
 import { randomUUID } from 'crypto'
 
@@ -109,9 +109,11 @@ export function listUploads() {
  * @param {string} filename
  */
 export function deleteUpload(filename) {
-  // Prevent directory traversal
-  const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '')
-  const full = join(UPLOAD_DIR, safe)
+  // Use basename to strip any directory components (prevents traversal)
+  const safe = basename(filename).replace(/[^a-zA-Z0-9._-]/g, '')
+  const full = resolve(UPLOAD_DIR, safe)
+  // Verify the resolved path is still inside UPLOAD_DIR
+  if (!full.startsWith(resolve(UPLOAD_DIR))) return false
   if (!existsSync(full)) return false
   unlinkSync(full)
   return true
