@@ -10,11 +10,32 @@ import { syncHandler } from './services/sync.js'
 import { ollamaModels } from './services/ollama.js'
 import { getMemory, setMemoryKey, deleteMemoryKey, getAuditLog, resetMemory, isProtectedPath } from './services/memory.js'
 import { buildAssistantContext, ASSISTANT_NAME } from './services/assistant.js'
+import { requireApiKey } from './middleware/auth.js'
+import { runAgent, AGENT_TYPES } from './agents/manager.js'
+import { addTask, getQueueStatus } from './tasks/queue.js'
 
 const syncLimiter = rateLimit({ windowMs: 60_000, max: 10, standardHeaders: true, legacyHeaders: false })
 const modelsLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true, legacyHeaders: false })
 const memoryLimiter = rateLimit({ windowMs: 60_000, max: 60, standardHeaders: true, legacyHeaders: false })
 const assistantLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true, legacyHeaders: false })
+const agentLimiter = rateLimit({ windowMs: 60_000, max: 20, standardHeaders: true, legacyHeaders: false })
+
+/** Permissive / uncensored Ollama model IDs — usage is logged for accountability. */
+const PERMISSIVE_MODEL_IDS = new Set([
+  'nous-hermes2',
+  'openhermes',
+  'dolphin-mistral',
+  'dolphin-mixtral',
+  'wizard-vicuna-uncensored',
+  'llama2-uncensored',
+])
+
+/** Log permissive-model usage to stdout (extend to a file / DB as needed). */
+function logPermissiveUsage(model, req) {
+  const ts = new Date().toISOString()
+  const ip = req.ip ?? req.socket?.remoteAddress ?? 'unknown'
+  console.log(`[PERMISSIVE] ts=${ts} model=${model} ip=${ip}`)
+}
 
 const app = express()
 const PORT = parseInt(process.env.PORT ?? '3001', 10)
@@ -49,6 +70,11 @@ app.get('/api/status', async (_req, res) => {
 
 app.post('/api/chat', async (req, res) => {
   try {
+    const { model, messages } = req.body ?? {}
+    // Only log permissive usage for valid, well-formed requests
+    if (model && Array.isArray(messages) && PERMISSIVE_MODEL_IDS.has(model)) {
+      logPermissiveUsage(model, req)
+    }
     await chatHandler(req, res)
   } catch (err) {
     res.status(500).json({ error: 'Chat error', detail: String(err) })
@@ -82,7 +108,7 @@ app.get('/api/memory/audit', memoryLimiter, (_req, res) => {
   res.json(getAuditLog())
 })
 
-app.post('/api/memory', memoryLimiter, (req, res) => {
+app.post('/api/memory', memoryLimiter, requireApiKey, (req, res) => {
   const { path, value, actor } = req.body ?? {}
   if (!path || typeof path !== 'string') {
     return res.status(400).json({ error: '"path" (string, dot-notation) is required' })
@@ -99,7 +125,7 @@ app.post('/api/memory', memoryLimiter, (req, res) => {
   }
 })
 
-app.delete('/api/memory/reset', memoryLimiter, (req, res) => {
+app.delete('/api/memory/reset', memoryLimiter, requireApiKey, (req, res) => {
   try {
     const updated = resetMemory(req.body?.actor ?? 'user')
     return res.json(updated)
@@ -108,7 +134,7 @@ app.delete('/api/memory/reset', memoryLimiter, (req, res) => {
   }
 })
 
-app.delete('/api/memory/:path(*)', memoryLimiter, (req, res) => {
+app.delete('/api/memory/:path(*)', memoryLimiter, requireApiKey, (req, res) => {
   const dotPath = req.params.path
   if (!dotPath) return res.status(400).json({ error: 'path is required' })
   if (isProtectedPath(dotPath)) {
@@ -150,6 +176,54 @@ app.post('/api/assistant/chat', assistantLimiter, async (req, res) => {
   } catch (err) {
     return res.status(500).json({ error: 'Assistant chat error', detail: String(err) })
   }
+})
+
+// ── Agent routes ──────────────────────────────────────────────────────────────
+
+/**
+ * POST /api/agent/run
+ * Body: { agent: "research" | "coder" | "automation", task: string, model?: string, apiKey?: string }
+ * Runs an agent synchronously and returns the result.
+ */
+app.post('/api/agent/run', agentLimiter, requireApiKey, async (req, res) => {
+  const { agent, task, model, apiKey } = req.body ?? {}
+  if (!agent || !task) {
+    return res.status(400).json({ error: '"agent" and "task" are required' })
+  }
+  if (!AGENT_TYPES.includes(agent)) {
+    return res.status(400).json({ error: `Unknown agent "${agent}". Valid: ${AGENT_TYPES.join(', ')}` })
+  }
+  try {
+    const result = await runAgent(agent, task, { model, apiKey, baseUrl: `http://localhost:${PORT}` })
+    return res.json({ agent, task, result })
+  } catch (err) {
+    return res.status(500).json({ error: 'Agent error', detail: String(err) })
+  }
+})
+
+/**
+ * POST /api/agent/task
+ * Body: { agent: string, task: string, model?: string }
+ * Adds the task to the background queue and returns a job ID immediately.
+ */
+app.post('/api/agent/task', agentLimiter, requireApiKey, (req, res) => {
+  const { agent, task, model } = req.body ?? {}
+  if (!agent || !task) {
+    return res.status(400).json({ error: '"agent" and "task" are required' })
+  }
+  if (!AGENT_TYPES.includes(agent)) {
+    return res.status(400).json({ error: `Unknown agent "${agent}". Valid: ${AGENT_TYPES.join(', ')}` })
+  }
+  const id = addTask(agent, task, { model, baseUrl: `http://localhost:${PORT}` })
+  return res.json({ id, status: 'queued' })
+})
+
+/**
+ * GET /api/agent/queue
+ * Returns the current task queue and recent job history.
+ */
+app.get('/api/agent/queue', agentLimiter, requireApiKey, (_req, res) => {
+  return res.json(getQueueStatus())
 })
 
 // ── HTTP + WebSocket server ────────────────────────────────────────────────────

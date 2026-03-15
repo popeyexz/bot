@@ -299,10 +299,12 @@ export const UNCENSORED_MODELS: UncensoredModelInfo[] = [
     name: 'DeepSeek-V2',
     ollamaName: 'deepseek-v2',
     description:
-      'High-performance open-source MoE model from DeepSeek. Outstanding coding and reasoning. Recommended for Mini PC / Strix hardware.',
-    ramRequired: '32+ GB RAM',
+      'High-performance open-source MoE model from DeepSeek. Outstanding coding and reasoning. ' +
+      'Requires multiple GPUs and 100 GB+ VRAM — not suitable for a Mini PC or laptop. ' +
+      'For hardware-constrained setups use mistral, phi3, or llama3 8B instead.',
+    ramRequired: '100+ GB VRAM (multi-GPU)',
     tier: 'high',
-    tags: ['coding', 'reasoning', 'mini-pc'],
+    tags: ['coding', 'reasoning', 'multi-gpu'],
     params: '236B MoE',
   },
   {

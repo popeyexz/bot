@@ -20,6 +20,8 @@
 9. [Feature Details](#feature-details)
 10. [Expansion Guide](#expansion-guide)
 11. [Secrets Management](#secrets-management)
+12. [Security](#security)
+13. [Agent System (Jarvis Mode)](#agent-system-jarvis-mode)
 
 ---
 
@@ -40,6 +42,16 @@ strix/
 │   ├── data/           # Aria's persistent memory (memory.json — git-ignored)
 │   └── src/
 │       ├── index.js            # HTTP + WebSocket server
+│       ├── middleware/
+│       │   ├── auth.js         # Optional API key authentication
+│       │   └── rateLimiter.js  # Sliding-window rate limiter
+│       ├── agents/
+│       │   ├── manager.js      # Agent router (research / coder / automation)
+│       │   ├── researchAgent.js
+│       │   ├── coderAgent.js
+│       │   └── automationAgent.js
+│       ├── tasks/
+│       │   └── queue.js        # Background task queue (5-second poll)
 │       └── services/
 │           ├── chat.js         # AI provider proxies
 │           ├── health.js       # Service health checks
@@ -64,9 +76,20 @@ Browser (port 3000)
   │                       ├── Ollama  (localhost:11434)
   │                       ├── Health checks → local services
   │                       ├── Memory  → server/data/memory.json
-  │                       └── Aria    → system-prompt + memory context
+  │                       ├── Aria    → system-prompt + memory context
+  │                       └── Agents  → research / coder / automation
   │
   └── WebSocket ──────►  Real-time status updates (15s interval)
+```
+
+**Jarvis-style agent layer:**
+
+```
+Aria (central brain)
+  │
+  ├── Research Agent   — answers queries via the configured AI model
+  ├── Coder Agent      — generates and reviews code
+  └── Automation Agent — plans and describes automation workflows
 ```
 
 ---
@@ -128,7 +151,7 @@ docker compose up --build
 | `dashboard` | 3000  | nginx serving React SPA            |
 | `server`    | 3001  | Node.js API + WebSocket server     |
 
-> Local AI services (Ollama, Stable Diffusion, etc.) run **outside** Docker on your host machine. The server container reaches them via `host.docker.internal`.
+> **Linux hosts:** `host.docker.internal` does not resolve by default on Linux Docker. The `docker-compose.yml` already adds `extra_hosts: host.docker.internal:host-gateway` to handle this automatically. If you still see connection errors, pass `--network=host` or point `OLLAMA_URL` at the host's LAN IP instead.
 
 ---
 
@@ -153,6 +176,7 @@ Copy `.env.example` to `.env` and fill in your values.
 | `MEMORY_FILE`          | `./data/memory.json`           | Path to Aria's persistent memory|
 | `ASSISTANT_NAME`       | `Aria`                         | Name of the persistent assistant|
 | `GITHUB_TOKEN`         | —                              | GitHub PAT for future integrations (optional) |
+| `API_SECRET_KEY`       | —                              | API key protecting write/delete memory routes and agent endpoints. Leave blank for local-only installs; **required** when the server is publicly reachable. |
 
 ---
 
@@ -259,7 +283,9 @@ The **Local Models** page (`/local-models`) lets you browse, install, and chat w
 | Llama 2 Uncensored | 7B | 8 GB | Entry |
 | WizardLM Vicuna Uncensored | 13B | 16 GB | Mid |
 | Dolphin Mixtral | 8×7B | 32 GB | High-end |
-| DeepSeek-V2 | 236B MoE | 32+ GB | High-end |
+| DeepSeek-V2 | 236B MoE | 100+ GB VRAM (multi-GPU) | Workstation only |
+
+> **⚠️ Hardware note:** DeepSeek-V2 (236B MoE) requires multiple high-end GPUs with 100 GB+ combined VRAM. It **cannot** run on a Mini PC or consumer laptop. For hardware-constrained setups (Mini PC, 16 GB RAM) use `mistral`, `phi3`, or `llama3` (8B) instead.
 
 ### Enabling Permissive Models
 
@@ -272,6 +298,8 @@ The **Local Models** page (`/local-models`) lets you browse, install, and chat w
 ### Safety & Responsible Use
 
 > ⚠️ These models have reduced or removed safety filters. Use is limited to **legal purposes only** in your jurisdiction. All processing is local — no data leaves your machine. You are solely responsible for generated content.
+
+Every request that uses a permissive model is **logged to the server console** (timestamp + model name + client IP) so you can audit usage. If you need stronger controls, add a content-filtering middleware in `server/src/services/chat.js` that scans the prompt before forwarding it to Ollama.
 
 ```bash
 # Example: pull and run Nous Hermes 2 locally
@@ -404,6 +432,88 @@ Add new top-level keys to `DEFAULT_MEMORY` in `server/src/services/memory.js`. T
 
 ---
 
-## License
+## Security
+
+### Protecting Memory & Agent Routes
+
+The `POST /api/memory`, `DELETE /api/memory/*`, and `POST /api/agent/*` routes can modify Aria's state. When `API_SECRET_KEY` is set in `.env`, every request to these routes must include:
+
+```
+X-API-Key: <your-secret>
+```
+
+If the key is absent or wrong the server responds with `401` / `403`. The key must always be supplied in the `X-API-Key` header — never as a URL query parameter (that would expose it in server logs and browser history).
+
+**Set up a key:**
+
+```bash
+# Generate a random 32-character key
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+# Copy the output into .env:
+API_SECRET_KEY=<the-generated-value>
+```
+
+For local-only installs (`localhost`) you can leave `API_SECRET_KEY` blank — the middleware is a no-op. **Always set it** when the server is publicly reachable.
+
+---
+
+## Agent System (Jarvis Mode)
+
+Strix includes a lightweight Jarvis-style agent layer that lets Aria dispatch specialist tasks to dedicated sub-agents.
+
+### Architecture
+
+```
+Aria (central brain)
+  │
+  ├── Research Agent   — answers research questions via the AI model
+  ├── Coder Agent      — generates and reviews code
+  └── Automation Agent — plans automation workflows
+       │
+       └── Task Queue  — runs jobs in the background every 5 s
+```
+
+### Agent API
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/agent/run` | Run an agent synchronously. Returns the result immediately. |
+| `POST` | `/api/agent/task` | Enqueue a background job. Returns a job ID. |
+| `GET` | `/api/agent/queue` | View the pending queue and job history. |
+
+All agent endpoints require `X-API-Key` when `API_SECRET_KEY` is set.
+
+**Run a research task (sync):**
+
+```bash
+curl -X POST http://localhost:3001/api/agent/run \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: <your-secret>" \
+  -d '{"agent": "research", "task": "What are the best open-source LLMs for a 16 GB RAM machine?", "model": "ollama-local"}'
+```
+
+**Queue a background coding task:**
+
+```bash
+curl -X POST http://localhost:3001/api/agent/task \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: <your-secret>" \
+  -d '{"agent": "coder", "task": "Write a Python script that monitors CPU usage and sends a webhook alert above 90%"}'
+```
+
+**Check queue status:**
+
+```bash
+curl http://localhost:3001/api/agent/queue \
+  -H "X-API-Key: <your-secret>"
+```
+
+### Adding New Agents
+
+1. Create `server/src/agents/myAgent.js` following the same pattern as `researchAgent.js`.
+2. Add it to the `switch` statement in `server/src/agents/manager.js`.
+3. Add the name to the `AGENT_TYPES` array in `manager.js`.
+
+---
 
 MIT — see [LICENSE](LICENSE) for details.
