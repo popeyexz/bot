@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "vite --port 3000",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "audit:fix": "npm audit fix",
+    "audit:check": "npm audit --omit=dev"
   },
   "dependencies": {
     "react": "^18.2.0",

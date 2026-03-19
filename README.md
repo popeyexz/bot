@@ -22,6 +22,9 @@
 11. [Secrets Management](#secrets-management)
 12. [Security](#security)
 13. [Agent System (Jarvis Mode)](#agent-system-jarvis-mode)
+14. [Paperclip (File Uploads)](#paperclip-file-uploads)
+15. [Free API Integrations](#free-api-integrations)
+16. [Auto-Patching & Dependency Management](#auto-patching--dependency-management)
 
 ---
 
@@ -43,8 +46,9 @@ strix/
 │   └── src/
 │       ├── index.js            # HTTP + WebSocket server
 │       ├── middleware/
-│       │   ├── auth.js         # Optional API key authentication
-│       │   └── rateLimiter.js  # Sliding-window rate limiter
+│       │   ├── auth.js         # Optional API key authentication (timing-safe)
+│       │   ├── rateLimiter.js  # Sliding-window rate limiter
+│       │   └── security.js     # Helmet headers + input sanitisation
 │       ├── agents/
 │       │   ├── manager.js      # Agent router (research / coder / automation)
 │       │   ├── researchAgent.js
@@ -58,7 +62,9 @@ strix/
 │           ├── sync.js         # File sync utility
 │           ├── ollama.js       # Ollama model listing
 │           ├── memory.js       # Persistent memory with audit log
-│           └── assistant.js    # Aria persona, system-prompt builder, self-healing
+│           ├── assistant.js    # Aria persona, system-prompt builder, self-healing
+│           ├── paperclip.js    # Secure file uploads (MIME/ext/size validation)
+│           └── integrations.js # Free API integrations with security gate
 │
 ├── docker-compose.yml  # Production deployment
 ├── install.sh          # One-command setup
@@ -77,7 +83,9 @@ Browser (port 3000)
   │                       ├── Health checks → local services
   │                       ├── Memory  → server/data/memory.json
   │                       ├── Aria    → system-prompt + memory context
-  │                       └── Agents  → research / coder / automation
+  │                       ├── Agents  → research / coder / automation
+  │                       ├── Paperclip → secure file uploads
+  │                       └── Integrations → free APIs (crypto, forex, news, weather)
   │
   └── WebSocket ──────►  Real-time status updates (15s interval)
 ```
@@ -177,6 +185,8 @@ Copy `.env.example` to `.env` and fill in your values.
 | `ASSISTANT_NAME`       | `Aria`                         | Name of the persistent assistant|
 | `GITHUB_TOKEN`         | —                              | GitHub PAT for future integrations (optional) |
 | `API_SECRET_KEY`       | —                              | API key protecting write/delete memory routes and agent endpoints. Leave blank for local-only installs; **required** when the server is publicly reachable. |
+| `UPLOAD_DIR`           | `./data/uploads`               | Directory where Paperclip stores uploaded files |
+| `UPLOAD_MAX_MB`        | `10`                           | Maximum upload file size in megabytes |
 
 ---
 
@@ -434,6 +444,27 @@ Add new top-level keys to `DEFAULT_MEMORY` in `server/src/services/memory.js`. T
 
 ## Security
 
+### HTTP Security Headers
+
+The server uses [helmet](https://helmetjs.github.io/) to set best-practice HTTP security headers on every response:
+
+| Header | Value |
+|--------|-------|
+| `Content-Security-Policy` | `default-src 'self'`; scripts, styles, images restricted |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` |
+| `X-Content-Type-Options` | `nosniff` |
+| `X-Frame-Options` | `SAMEORIGIN` |
+| `X-XSS-Protection` | `0` (modern CSP preferred) |
+| `X-DNS-Prefetch-Control` | `off` |
+
+### Input Sanitisation
+
+All JSON request bodies are automatically sanitised — angle brackets (`< >`) and null bytes are stripped from every string field to mitigate basic XSS and injection vectors.
+
+### Timing-Safe API Key Comparison
+
+The auth middleware uses `crypto.timingSafeEqual` to compare API keys in constant time, preventing timing-based side-channel attacks.
+
 ### Protecting Memory & Agent Routes
 
 The `POST /api/memory`, `DELETE /api/memory/*`, and `POST /api/agent/*` routes can modify Aria's state. When `API_SECRET_KEY` is set in `.env`, every request to these routes must include:
@@ -513,6 +544,104 @@ curl http://localhost:3001/api/agent/queue \
 1. Create `server/src/agents/myAgent.js` following the same pattern as `researchAgent.js`.
 2. Add it to the `switch` statement in `server/src/agents/manager.js`.
 3. Add the name to the `AGENT_TYPES` array in `manager.js`.
+
+---
+
+## Paperclip (File Uploads)
+
+Paperclip provides secure file-upload handling with strict validation:
+
+- **MIME-type allow-list**: PNG, JPEG, GIF, WebP, SVG, PDF, TXT, JSON
+- **Extension allow-list**: `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.svg`, `.pdf`, `.txt`, `.json`
+- **Size limit**: 10 MB default (configurable via `UPLOAD_MAX_MB`)
+- **UUID filenames**: original names are replaced with UUIDs to prevent collisions and path injection
+
+### Upload API
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/upload` | Upload a single file (multipart, field `file`). Requires `X-API-Key`. |
+| `GET` | `/api/uploads` | List all uploaded files with size and date. |
+| `DELETE` | `/api/uploads/:name` | Delete a file by UUID name. Requires `X-API-Key`. |
+
+**Example: upload a file**
+
+```bash
+curl -X POST http://localhost:3001/api/upload \
+  -H "X-API-Key: <your-secret>" \
+  -F "file=@/path/to/image.png"
+```
+
+---
+
+## Free API Integrations
+
+Strix includes a modular integration framework for free, public APIs. Every API call passes through a **security gate** before execution:
+
+1. **HTTPS-only** — HTTP URLs are rejected
+2. **Domain allow-list** — only pre-approved domains are contacted
+3. **Per-integration rate limiting** — prevents abuse of free tiers
+4. **Response-size guard** — caps at 512 KB to prevent memory exhaustion
+5. **Request timeout** — 8-second maximum to prevent hanging
+
+### Available Integrations
+
+| ID | Name | Category | API Key? |
+|----|------|----------|----------|
+| `coingecko-prices` | CoinGecko Crypto Prices | Finance | No |
+| `exchange-rates` | Open Exchange Rates | Finance | No |
+| `github-trending` | GitHub Trending Repos | Developer | No |
+| `weather` | Weather (wttr.in) | Utility | No |
+
+### Integration API
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/integrations` | List all available integrations (metadata only). |
+| `GET` | `/api/integrations/run/:id` | Execute a single integration by ID. |
+| `GET` | `/api/integrations/run-all` | Execute all integrations in parallel. |
+
+**Example: get crypto prices**
+
+```bash
+curl http://localhost:3001/api/integrations/run/coingecko-prices
+```
+
+### Adding New Integrations
+
+Edit `server/src/services/integrations.js`:
+
+1. Add the new domain to `ALLOWED_DOMAINS`.
+2. Add an entry to the `INTEGRATIONS` array with `id`, `name`, `description`, `category`, and a `fetch()` function that calls `safeFetch()`.
+
+Every new integration automatically inherits all security checks.
+
+---
+
+## Auto-Patching & Dependency Management
+
+### Dependabot
+
+The repository includes `.github/dependabot.yml` which configures GitHub Dependabot to:
+
+- Scan **server** and **dashboard** npm dependencies weekly
+- Open PRs for security patches automatically
+- Group minor and patch updates into single PRs
+- Apply `dependencies` and `security` labels for easy triage
+
+### npm Audit
+
+Both `server` and `dashboard` include audit scripts:
+
+```bash
+# Check for known vulnerabilities
+cd server && npm run audit:check
+cd dashboard && npm run audit:check
+
+# Auto-fix vulnerabilities where possible
+cd server && npm run audit:fix
+cd dashboard && npm run audit:fix
+```
 
 ---
 
