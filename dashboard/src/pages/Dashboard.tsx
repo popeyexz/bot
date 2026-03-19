@@ -31,14 +31,14 @@ function StatCard({
   return (
     <div className="glass-card p-5 flex items-center gap-4">
       <div
-        className={`w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br ${color} flex-shrink-0 shadow-lg`}
+        className={`w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br ${color} flex-shrink-0 shadow-md`}
       >
         <Icon className="w-6 h-6 text-white" />
       </div>
       <div>
-        <div className="text-2xl font-bold text-gray-100">{value}</div>
-        <div className="text-sm text-gray-400">{label}</div>
-        {sub && <div className="text-xs text-gray-600 mt-0.5">{sub}</div>}
+        <div className="text-2xl font-bold text-gray-900">{value}</div>
+        <div className="text-sm text-gray-500">{label}</div>
+        {sub && <div className="text-xs text-gray-400 mt-0.5">{sub}</div>}
       </div>
     </div>
   )
@@ -54,13 +54,13 @@ export default function DashboardPage() {
     <div className="animate-fade-in space-y-8 max-w-7xl">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-100 mb-1">
+        <h1 className="text-3xl font-bold text-gray-900 mb-1">
           Welcome back{' '}
-          <span className="bg-gradient-to-r from-violet-400 to-purple-400 bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
             ✦
           </span>
         </h1>
-        <p className="text-gray-400 text-sm">
+        <p className="text-gray-500 text-sm">
           Your AI tools hub — launch, manage, and chat with AI models.
         </p>
       </div>
@@ -92,7 +92,7 @@ export default function DashboardPage() {
           label="Services Online"
           value={onlineCount}
           icon={Activity}
-          color={onlineCount > 0 ? 'from-green-500 to-emerald-600' : 'from-gray-600 to-gray-700'}
+          color={onlineCount > 0 ? 'from-green-500 to-emerald-600' : 'from-gray-400 to-gray-500'}
           sub={onlineCount === 0 ? 'none detected' : 'healthy'}
         />
       </div>
@@ -104,7 +104,7 @@ export default function DashboardPage() {
             <h2 className="section-header">Featured Tools</h2>
             <p className="section-subheader">Quick access to your most-used AI tools</p>
           </div>
-          <Link to="/tools" className="btn-ghost text-violet-400 hover:text-violet-300">
+          <Link to="/tools" className="btn-ghost text-violet-600 hover:text-violet-700">
             View all
             <ArrowRight className="w-4 h-4" />
           </Link>
@@ -120,8 +120,8 @@ export default function DashboardPage() {
       {/* Service status overview */}
       <div>
         <div className="flex items-center gap-2 mb-4">
-          <TrendingUp className="w-4 h-4 text-violet-400" />
-          <h2 className="text-base font-semibold text-gray-200">Local Service Status</h2>
+          <TrendingUp className="w-4 h-4 text-violet-600" />
+          <h2 className="text-base font-semibold text-gray-800">Local Service Status</h2>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {statuses.map((s) => (
@@ -136,8 +136,8 @@ export default function DashboardPage() {
                 }
               />
               <div className="min-w-0">
-                <div className="text-sm font-medium text-gray-200 truncate">{s.name}</div>
-                <div className="text-xs text-gray-500">
+                <div className="text-sm font-medium text-gray-800 truncate">{s.name}</div>
+                <div className="text-xs text-gray-400">
                   {s.status === 'online'
                     ? s.latency
                       ? `${s.latency}ms`

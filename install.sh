@@ -21,6 +21,29 @@ echo ""
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# ── Firewall setup (UFW — Linux only, skipped silently on macOS/Windows) ──────
+echo -e "${BOLD}[0/5] Configuring firewall...${RESET}"
+if command -v ufw &>/dev/null; then
+  # Only configure UFW if it is not already active to avoid disrupting existing rules.
+  UFW_STATUS=$(ufw status | head -1)
+  if echo "$UFW_STATUS" | grep -q "inactive"; then
+    ufw default deny incoming
+    ufw default allow outgoing
+    ufw allow ssh
+    # Strix ports are bound to 127.0.0.1, so no external rules are needed.
+    # Uncomment the lines below ONLY if you expose the server behind a reverse proxy.
+    # ufw allow 80/tcp   # HTTP  (reverse proxy)
+    # ufw allow 443/tcp  # HTTPS (reverse proxy)
+    ufw --force enable
+    echo -e "${GREEN}✓ UFW firewall configured (default deny, SSH allowed)${RESET}"
+  else
+    echo -e "${GREEN}✓ UFW already active — skipping firewall reset (current rules preserved)${RESET}"
+  fi
+  echo -e "${YELLOW}  → Strix ports 3000/3001 are localhost-only and not exposed externally.${RESET}"
+else
+  echo -e "${YELLOW}  → UFW not found — skipping firewall config. Install with: sudo apt install ufw${RESET}"
+fi
+
 # ── Check Node.js ────────────────────────────────────────────────────────────
 echo -e "${BOLD}[1/5] Checking Node.js...${RESET}"
 if ! command -v node &>/dev/null; then

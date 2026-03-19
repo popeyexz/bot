@@ -11,7 +11,7 @@ import { ollamaModels } from './services/ollama.js'
 import { getMemory, setMemoryKey, deleteMemoryKey, getAuditLog, resetMemory, isProtectedPath } from './services/memory.js'
 import { buildAssistantContext, ASSISTANT_NAME } from './services/assistant.js'
 import { requireApiKey } from './middleware/auth.js'
-import { securityHeaders, sanitizeInput } from './middleware/security.js'
+import { securityHeaders, sanitizeInput, safeEqual } from './middleware/security.js'
 import { runAgent, AGENT_TYPES } from './agents/manager.js'
 import { addTask, getQueueStatus } from './tasks/queue.js'
 import { uploadMiddleware, listUploads, deleteUpload } from './services/paperclip.js'
@@ -44,6 +44,9 @@ function logPermissiveUsage(model, req) {
 
 const app = express()
 const PORT = parseInt(process.env.PORT ?? '3001', 10)
+// Bind to localhost only by default — set BIND_ADDRESS=0.0.0.0 only when a
+// reverse-proxy (nginx, caddy) sits in front and handles external TLS/auth.
+const BIND_ADDRESS = process.env.BIND_ADDRESS ?? '127.0.0.1'
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:3000'
 
 // ── Middleware ────────────────────────────────────────────────────────────────
@@ -57,7 +60,13 @@ app.use(
 app.use(express.json({ limit: '4mb' }))
 app.use(sanitizeInput)
 
-// ── Routes ────────────────────────────────────────────────────────────────────
+// ── Global rate limiter (catch-all for unlisted routes) ──────────────────────
+// Per-route limiters (stricter) are defined above; this is a defence-in-depth
+// backstop for any routes not covered by a dedicated limiter.
+const globalLimiter = rateLimit({ windowMs: 60_000, max: 500, standardHeaders: true, legacyHeaders: false })
+app.use(globalLimiter)
+
+
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', uptime: process.uptime(), ts: new Date().toISOString() })
 })
@@ -309,9 +318,25 @@ app.get('/api/integrations/run-all', integrationLimiter, async (_req, res) => {
 
 // ── HTTP + WebSocket server ────────────────────────────────────────────────────
 const httpServer = createServer(app)
+
+/** Optional WS token — set WS_TOKEN in .env to require authentication. */
+const WS_TOKEN = process.env.WS_TOKEN
+
 const wss = new WebSocketServer({ server: httpServer })
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
+  // ── WebSocket authentication ────────────────────────────────────────────────
+  // When WS_TOKEN is configured, the client must include it as a query param:
+  //   ws://localhost:3001?token=<WS_TOKEN>
+  if (WS_TOKEN) {
+    const url = new URL(req.url ?? '', `http://${req.headers.host ?? 'localhost'}`)
+    const token = url.searchParams.get('token') ?? ''
+    if (!safeEqual(token, WS_TOKEN)) {
+      ws.close(1008, 'Unauthorized')
+      return
+    }
+  }
+
   console.log('[WS] client connected')
 
   const sendStatus = async () => {
@@ -344,8 +369,8 @@ wss.on('connection', (ws) => {
   })
 })
 
-httpServer.listen(PORT, () => {
-  console.log(`\n🚀 Strix server running on http://localhost:${PORT}`)
-  console.log(`   WebSocket: ws://localhost:${PORT}`)
-  console.log(`   Health:    http://localhost:${PORT}/health\n`)
+httpServer.listen(PORT, BIND_ADDRESS, () => {
+  console.log(`\n🚀 Strix server running on http://${BIND_ADDRESS}:${PORT}`)
+  console.log(`   WebSocket: ws://${BIND_ADDRESS}:${PORT}`)
+  console.log(`   Health:    http://${BIND_ADDRESS}:${PORT}/health\n`)
 })
