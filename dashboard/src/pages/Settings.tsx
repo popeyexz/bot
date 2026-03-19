@@ -37,9 +37,9 @@ function MaskedInput({
   const [show, setShow] = useState(false)
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-400 mb-1.5">{label}</label>
+      <label className="block text-xs font-medium text-gray-500 mb-1.5">{label}</label>
       <div className="relative">
-        <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600" />
+        <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
         <input
           type={show ? 'text' : 'password'}
           value={value}
@@ -52,7 +52,7 @@ function MaskedInput({
         <button
           type="button"
           onClick={() => setShow((s) => !s)}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400 transition-colors"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
         >
           {show ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
         </button>
@@ -72,9 +72,9 @@ function UrlInput({
 }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-400 mb-1.5">{label}</label>
+      <label className="block text-xs font-medium text-gray-500 mb-1.5">{label}</label>
       <div className="relative">
-        <Server className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600" />
+        <Server className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
         <input
           type="url"
           value={value}
@@ -119,9 +119,9 @@ export default function SettingsPage() {
       </div>
 
       {/* Info banner */}
-      <div className="glass-card p-4 flex gap-3 border-blue-500/20 bg-blue-500/5">
-        <Info className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
-        <p className="text-xs text-gray-400 leading-relaxed">
+      <div className="glass-card p-4 flex gap-3 border-blue-200 bg-blue-50">
+        <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+        <p className="text-xs text-gray-600 leading-relaxed">
           API keys are stored in your browser's localStorage only — never sent anywhere except the
           Strix backend server (running on your machine). For production, configure keys in the
           server's <code className="text-blue-400">.env</code> file instead.
@@ -130,7 +130,7 @@ export default function SettingsPage() {
 
       {/* API Keys */}
       <div className="glass-card p-5 space-y-4">
-        <h2 className="text-sm font-semibold text-gray-200 flex items-center gap-2">
+        <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
           <Key className="w-4 h-4 text-violet-400" />
           API Keys
         </h2>
@@ -164,7 +164,7 @@ export default function SettingsPage() {
       {/* Service URLs */}
       <div className="glass-card p-5 space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-200 flex items-center gap-2">
+          <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
             <Server className="w-4 h-4 text-violet-400" />
             Local Service URLs
           </h2>

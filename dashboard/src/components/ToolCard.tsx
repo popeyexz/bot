@@ -63,17 +63,17 @@ function StatusBadge({ status }: { status?: ServiceStatus }) {
     <span
       className={clsx(
         'badge',
-        status.status === 'online' && 'bg-green-500/10 text-green-400 border border-green-500/20',
-        status.status === 'offline' && 'bg-gray-800 text-gray-500 border border-gray-700',
-        status.status === 'checking' && 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20',
+        status.status === 'online' && 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+        status.status === 'offline' && 'bg-gray-100 text-gray-400 border border-gray-200',
+        status.status === 'checking' && 'bg-amber-50 text-amber-600 border border-amber-200',
       )}
     >
       <span
         className={clsx(
           'w-1.5 h-1.5 rounded-full',
-          status.status === 'online' && 'bg-green-400 animate-pulse',
-          status.status === 'offline' && 'bg-gray-500',
-          status.status === 'checking' && 'bg-yellow-400 animate-pulse',
+          status.status === 'online' && 'bg-emerald-500 animate-pulse',
+          status.status === 'offline' && 'bg-gray-400',
+          status.status === 'checking' && 'bg-amber-400 animate-pulse',
         )}
       />
       {status.status === 'online'
@@ -127,7 +127,7 @@ export default function ToolCard({ tool, status, compact }: ToolCardProps) {
         <div className="flex items-center gap-2 mb-1">
           <h3
             className={clsx(
-              'font-semibold text-gray-100 truncate',
+              'font-semibold text-gray-800 truncate',
               compact ? 'text-sm' : 'text-base',
             )}
           >
@@ -141,7 +141,7 @@ export default function ToolCard({ tool, status, compact }: ToolCardProps) {
 
       {/* Footer */}
       <div className={clsx('flex items-center justify-between', compact ? 'mt-2' : 'mt-4')}>
-        <span className="badge bg-gray-800/80 text-gray-500 border border-gray-700 text-[10px]">
+        <span className="badge bg-gray-100 text-gray-500 border border-gray-200 text-[10px]">
           {tool.category}
         </span>
         {tool.isLocal && <StatusBadge status={status} />}

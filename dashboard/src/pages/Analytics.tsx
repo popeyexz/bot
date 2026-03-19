@@ -35,7 +35,7 @@ function formatUptime(seconds: number) {
 function BarChart({ value, max, color }: { value: number; max: number; color: string }) {
   const pct = Math.min(100, Math.round((value / max) * 100))
   return (
-    <div className="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
+    <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
       <div
         className={clsx('h-full rounded-full transition-all duration-1000', color)}
         style={{ width: `${pct}%` }}
@@ -152,9 +152,9 @@ export default function AnalyticsPage() {
           <div key={label} className="glass-card p-4">
             <div className="flex items-center gap-2 mb-3">
               <Icon className="w-4 h-4 text-gray-500" />
-              <span className="text-xs font-medium text-gray-400">{label}</span>
+              <span className="text-xs font-medium text-gray-500">{label}</span>
             </div>
-            <div className="text-xl font-bold text-gray-100 mb-3">{value}</div>
+            <div className="text-xl font-bold text-gray-900 mb-3">{value}</div>
             {bar !== null && <BarChart value={bar} max={barMax} color={barColor} />}
           </div>
         ))}
@@ -164,8 +164,8 @@ export default function AnalyticsPage() {
       <div className="glass-card p-5">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-violet-400" />
-            <h2 className="text-sm font-semibold text-gray-200">CPU Activity (last 60s)</h2>
+            <TrendingUp className="w-4 h-4 text-violet-600" />
+            <h2 className="text-sm font-semibold text-gray-800">CPU Activity (last 60s)</h2>
           </div>
           <span className="text-xs text-gray-500">Updates every 5s</span>
         </div>
@@ -173,7 +173,7 @@ export default function AnalyticsPage() {
           {history.map((v, i) => (
             <div
               key={i}
-              className="flex-1 rounded-t bg-violet-600/60 transition-all duration-700"
+              className="flex-1 rounded-t bg-violet-500/70 transition-all duration-700"
               style={{ height: `${Math.max(4, v)}%` }}
               title={`${v}%`}
             />
@@ -188,7 +188,7 @@ export default function AnalyticsPage() {
       {/* Service status */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="glass-card p-5">
-          <h2 className="text-sm font-semibold text-gray-200 mb-4">Local Service Health</h2>
+          <h2 className="text-sm font-semibold text-gray-800 mb-4">Local Service Health</h2>
           <div className="space-y-3">
             {statuses.map((s) => (
               <div key={s.id} className="flex items-center justify-between">
@@ -202,21 +202,21 @@ export default function AnalyticsPage() {
                           : 'status-dot-offline',
                     )}
                   />
-                  <span className="text-sm text-gray-300">{s.name}</span>
-                  {s.port && <span className="text-[10px] text-gray-600">:{s.port}</span>}
+                  <span className="text-sm text-gray-700">{s.name}</span>
+                  {s.port && <span className="text-[10px] text-gray-400">:{s.port}</span>}
                 </div>
                 <div className="flex items-center gap-3">
                   {s.latency && (
-                    <span className="text-xs text-gray-600">{s.latency}ms</span>
+                    <span className="text-xs text-gray-400">{s.latency}ms</span>
                   )}
                   <span
                     className={clsx(
                       'badge text-[10px]',
                       s.status === 'online'
-                        ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                         : s.status === 'checking'
-                          ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
-                          : 'bg-gray-800 text-gray-500 border border-gray-700',
+                          ? 'bg-amber-50 text-amber-600 border border-amber-200'
+                          : 'bg-gray-100 text-gray-500 border border-gray-200',
                     )}
                   >
                     {s.status}
@@ -225,9 +225,9 @@ export default function AnalyticsPage() {
               </div>
             ))}
           </div>
-          <div className="mt-4 pt-4 border-t border-white/5 flex items-center gap-4 text-xs text-gray-500">
+          <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-4 text-xs text-gray-500">
             <span>
-              <span className="text-green-400 font-medium">{onlineCount}</span> online
+              <span className="text-emerald-600 font-medium">{onlineCount}</span> online
             </span>
             <span>
               <span className="text-gray-500 font-medium">{offlineCount}</span> offline
@@ -237,17 +237,17 @@ export default function AnalyticsPage() {
 
         {/* Model usage */}
         <div className="glass-card p-5">
-          <h2 className="text-sm font-semibold text-gray-200 mb-4">Model Usage (session)</h2>
+          <h2 className="text-sm font-semibold text-gray-800 mb-4">Model Usage (session)</h2>
           <div className="space-y-3">
             {modelUsage.map((m) => (
               <div key={m.name}>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm text-gray-300">{m.name}</span>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-sm text-gray-700">{m.name}</span>
+                  <span className="text-xs text-gray-400">
                     {Math.round((m.usage / totalUsage) * 100)}%
                   </span>
                 </div>
-                <div className="w-full bg-gray-800 rounded-full h-1.5 overflow-hidden">
+                <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
                   <div
                     className={clsx('h-full rounded-full transition-all duration-700', m.color)}
                     style={{ width: `${(m.usage / totalUsage) * 100}%` }}
@@ -256,9 +256,9 @@ export default function AnalyticsPage() {
               </div>
             ))}
           </div>
-          <div className="mt-4 pt-4 border-t border-white/5">
+          <div className="mt-4 pt-4 border-t border-gray-100">
             <MiniSparkline data={history} />
-            <p className="text-[10px] text-gray-600 mt-1">API request rate over time</p>
+            <p className="text-[10px] text-gray-400 mt-1">API request rate over time</p>
           </div>
         </div>
       </div>

@@ -56,8 +56,8 @@ export default function ToolsPage() {
               className={clsx(
                 'px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150',
                 activeCategory === cat
-                  ? 'bg-violet-600 text-white shadow-lg shadow-violet-900/30'
-                  : 'text-gray-400 hover:text-gray-200 bg-gray-900 hover:bg-gray-800 border border-gray-800',
+                  ? 'bg-violet-600 text-white shadow-sm shadow-violet-200'
+                  : 'text-gray-500 hover:text-gray-700 bg-white hover:bg-gray-50 border border-gray-200',
               )}
             >
               {cat}
