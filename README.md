@@ -1,4 +1,4 @@
-# Strix — AI Tools Dashboard
+# ARIA AI Tools Dashboard
 
 > A unified, production-quality dashboard for launching, managing, and chatting with AI tools — local and cloud.
 > Featuring **Aria**, your persistent, human-near AI assistant that remembers your context, monitors service health, and self-heals broken workflows.
